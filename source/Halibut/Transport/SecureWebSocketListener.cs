@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Halibut.Diagnostics;
 using Halibut.Transport.Protocol;
+using Halibut.Transport.Streams;
 using Halibut.Util;
 
 namespace Halibut.Transport
@@ -33,12 +34,14 @@ namespace Halibut.Transport
         {
         }
 
-        public SecureWebSocketListener(string endPoint, X509Certificate2 serverCertificate, ExchangeProtocolBuilder exchangeProtocolBuilder, ExchangeActionAsync exchangeAction, Predicate<string> verifyClientThumbprint, ILogFactory logFactory, Func<string> getFriendlyHtmlPageContent, Func<Dictionary<string, string>> getFriendlyHtmlPageHeaders, AsyncHalibutFeature asyncHalibutFeature, HalibutTimeoutsAndLimits halibutTimeoutsAndLimits)
+        public SecureWebSocketListener(string endPoint, X509Certificate2 serverCertificate, ExchangeProtocolBuilder exchangeProtocolBuilder, ExchangeActionAsync exchangeAction, Predicate<string> verifyClientThumbprint, ILogFactory logFactory, Func<string> getFriendlyHtmlPageContent, Func<Dictionary<string, string>> getFriendlyHtmlPageHeaders, AsyncHalibutFeature asyncHalibutFeature,
+            HalibutTimeoutsAndLimits halibutTimeoutsAndLimits)
             : this(endPoint, serverCertificate, exchangeProtocolBuilder, exchangeAction, verifyClientThumbprint, logFactory, getFriendlyHtmlPageContent, getFriendlyHtmlPageHeaders, (clientName, thumbprint) => UnauthorizedClientConnectResponse.BlockConnection, asyncHalibutFeature, halibutTimeoutsAndLimits)
         {
         }
 
-        public SecureWebSocketListener(string endPoint, X509Certificate2 serverCertificate, ExchangeProtocolBuilder exchangeProtocolBuilder, ExchangeActionAsync exchangeAction, Predicate<string> verifyClientThumbprint, ILogFactory logFactory, Func<string> getFriendlyHtmlPageContent, Func<Dictionary<string, string>> getFriendlyHtmlPageHeaders, Func<string, string, UnauthorizedClientConnectResponse> unauthorizedClientConnect, AsyncHalibutFeature asyncHalibutFeature, HalibutTimeoutsAndLimits halibutTimeoutsAndLimits)
+        public SecureWebSocketListener(string endPoint, X509Certificate2 serverCertificate, ExchangeProtocolBuilder exchangeProtocolBuilder, ExchangeActionAsync exchangeAction, Predicate<string> verifyClientThumbprint, ILogFactory logFactory, Func<string> getFriendlyHtmlPageContent, Func<Dictionary<string, string>> getFriendlyHtmlPageHeaders,
+            Func<string, string, UnauthorizedClientConnectResponse> unauthorizedClientConnect, AsyncHalibutFeature asyncHalibutFeature, HalibutTimeoutsAndLimits halibutTimeoutsAndLimits)
         {
             if (!endPoint.EndsWith("/"))
                 endPoint += "/";
@@ -64,7 +67,7 @@ namespace Halibut.Transport
             listener = new HttpListener();
             listener.Prefixes.Add(endPoint);
             listener.TimeoutManager.IdleConnection = asyncHalibutFeature.IsEnabled()
-                ? halibutTimeoutsAndLimits.TcpClientReceiveTimeout 
+                ? halibutTimeoutsAndLimits.TcpClientReceiveTimeout
 #pragma warning disable CS0612
                 : HalibutLimits.TcpClientReceiveTimeout;
 #pragma warning restore CS0612
@@ -161,8 +164,25 @@ namespace Halibut.Transport
 
                 if (authorized)
                 {
+                    TimeSpan tcpClientReceiveTimeout;
+                    TimeSpan tcpClientSendTimeout;
+                    if (asyncHalibutFeature.IsEnabled())
+                    {
+                        tcpClientReceiveTimeout = halibutTimeoutsAndLimits.TcpClientReceiveTimeout;
+                        tcpClientSendTimeout = halibutTimeoutsAndLimits.TcpClientSendTimeout;
+                    }
+                    else
+                    {
+#pragma warning disable CS0612
+                        tcpClientReceiveTimeout = HalibutLimits.TcpClientReceiveTimeout;
+                        tcpClientSendTimeout = HalibutLimits.TcpClientSendTimeout;
+#pragma warning restore CS0612
+                    }
+
+                    var halibutLimitsStream = new HalibutLimitsStream(webSocketStream, tcpClientReceiveTimeout, tcpClientSendTimeout);
+
                     // Delegate the open stream to the protocol handler - we no longer own the stream lifetime
-                    await ExchangeMessages(webSocketStream).ConfigureAwait(false);
+                    await ExchangeMessages(new NetworkTimeoutStream(halibutLimitsStream)).ConfigureAwait(false);
                 }
             }
             catch (TaskCanceledException)
@@ -232,7 +252,7 @@ namespace Halibut.Transport
             return true;
         }
 
-        Task ExchangeMessages(WebSocketStream stream)
+        Task ExchangeMessages(Stream stream)
         {
             log.Write(EventType.Diagnostic, "Begin message exchange");
 

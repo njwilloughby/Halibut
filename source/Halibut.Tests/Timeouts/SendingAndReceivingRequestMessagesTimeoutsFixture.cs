@@ -14,13 +14,14 @@ using Halibut.Tests.Support.PortForwarding;
 using Halibut.Tests.Support.TestCases;
 using Halibut.Tests.TestServices.Async;
 using Halibut.Util;
+using LogLevel = Halibut.Logging.LogLevel;
 
 namespace Halibut.Tests.Timeouts
 {
     public class SendingAndReceivingRequestMessagesTimeoutsFixture : BaseTest
     {
         [Test]
-        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false, testWebSocket: false, testAsyncServicesAsWell: true, testSyncService : false, testSyncClients: false, testAsyncClients: true)]
+        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false,  testAsyncServicesAsWell: true, testSyncService : false, testSyncClients: false, testAsyncClients: true)]
         public async Task HalibutTimeoutsAndLimits_AppliesToTcpClientReceiveTimeout(ClientAndServiceTestCase clientAndServiceTestCase)
         {
             var expectedTimeout = clientAndServiceTestCase.SyncOrAsync == SyncOrAsync.Sync ? HalibutLimits.TcpClientReceiveTimeout : TimeSpan.FromSeconds(10);
@@ -63,7 +64,7 @@ namespace Halibut.Tests.Timeouts
         }
         
         [Test]
-        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false, testWebSocket: false)]
+        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false)]
         public async Task WhenThenNetworkIsPaused_WhileReadingAResponseMessage_ATcpReadTimeoutOccurs_and_FurtherRequestsCanBeMade(ClientAndServiceTestCase clientAndServiceTestCase)
         {
             using (var clientAndService = await clientAndServiceTestCase.CreateTestCaseBuilder()
@@ -92,7 +93,7 @@ namespace Halibut.Tests.Timeouts
         }
 
         [Test]
-        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false, testWebSocket: false)]
+        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false)]
         public async Task WhenThenNetworkIsPaused_WhileReadingAResponseMessageDataStream_ATcpReadTimeoutOccurs_and_FurtherRequestsCanBeMade(ClientAndServiceTestCase clientAndServiceTestCase)
         {
             using (var clientAndService = await clientAndServiceTestCase.CreateTestCaseBuilder()
@@ -124,7 +125,8 @@ namespace Halibut.Tests.Timeouts
         }
 
         [Test]
-        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false, testWebSocket: false)]
+        [Timeout(120000)]
+        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false)]
         public async Task WhenThenNetworkIsPaused_WhileSendingARequestMessage_ATcpWriteTimeoutOccurs_and_FurtherRequestsCanBeMade(ClientAndServiceTestCase clientAndServiceTestCase)
         {
             var numberOfBytesBeforePausingAStream = 1024 * 1024; // 1MB
@@ -135,6 +137,7 @@ namespace Halibut.Tests.Timeouts
                            .PauseSingleStreamAfterANumberOfBytesHaveBeenSet(numberOfBytesBeforePausingAStream)
                            .Build())
                        .WithEchoService()
+                       .WithHalibutLoggingLevel(LogLevel.Trace)
                        .Build(CancellationToken))
             {
                 var echo = clientAndService.CreateClient<IEchoService, IAsyncClientEchoService>();
@@ -175,7 +178,7 @@ namespace Halibut.Tests.Timeouts
         }
         
         [Test]
-        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false, testWebSocket: false)]
+        [LatestClientAndLatestServiceTestCases(testNetworkConditions: false)]
         public async Task WhenThenNetworkIsPaused_WhileSendingADataStreamAsPartOfARequestMessage_ATcpWriteTimeoutOccurs_and_FurtherRequestsCanBeMade(ClientAndServiceTestCase clientAndServiceTestCase)
         {
             using (var clientAndService = await clientAndServiceTestCase.CreateTestCaseBuilder()

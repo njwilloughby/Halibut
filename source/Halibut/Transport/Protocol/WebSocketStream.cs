@@ -156,6 +156,9 @@ namespace Halibut.Transport.Protocol
         public override bool CanRead => context.State == WebSocketState.Open;
         public override bool CanSeek { get; } = false;
         public override bool CanWrite => context.State == WebSocketState.Open;
+        public override bool CanTimeout => true;
+        public override int ReadTimeout { get; set; }
+        public override int WriteTimeout { get; set; }
 
         public override long Length
         {
@@ -183,6 +186,11 @@ namespace Halibut.Transport.Protocol
             byte[] buffer = new byte[bufferSize];
             var readLength = await ReadAsync(buffer, 0, bufferSize, cancellationToken);
             await destination.WriteAsync(buffer, 0, readLength, cancellationToken);
+        }
+
+        public override void Close()
+        {
+            context.Dispose();
         }
 
         protected override void Dispose(bool disposing)
