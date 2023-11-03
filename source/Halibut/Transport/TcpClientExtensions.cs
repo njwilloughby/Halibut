@@ -43,6 +43,7 @@ namespace Halibut.Transport
             {
                 try
                 {
+                    client.CloseImmediately();
                     ((IDisposable) client).Dispose();
                 }
                 catch (SocketException)
@@ -61,8 +62,14 @@ namespace Halibut.Transport
 
         public static void CloseImmediately(this TcpClient client, Action<Exception> onError)
         {
-            Try.CatchingError(() => client.Client.Close(0), onError);
-            Try.CatchingError(client.Close, onError);
+            Try.CatchingError(() =>
+            {
+                client.Client.Close(0);
+            }, onError);
+            Try.CatchingError(() =>
+            {
+                client.Close();
+            }, onError);
         }
 
         public static string GetRemoteEndpointString(this TcpClient client)

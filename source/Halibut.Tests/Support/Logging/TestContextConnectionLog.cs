@@ -4,6 +4,7 @@ using System.Threading;
 using Halibut.Diagnostics;
 using Halibut.Diagnostics.LogWriters;
 using Halibut.Logging;
+using Serilog;
 using Serilog.Events;
 using ILog = Halibut.Diagnostics.ILog;
 using LogEvent = Halibut.Diagnostics.LogEvent;
@@ -15,12 +16,14 @@ namespace Halibut.Tests.Support.Logging
         readonly string endpoint;
         readonly string name;
         readonly LogLevel logLevel;
+        readonly ILogger log;
 
         public TestContextConnectionLog(string endpoint, string name, LogLevel logLevel)
         {
             this.endpoint = endpoint;
             this.name = name;
             this.logLevel = logLevel;
+            this.log = new SerilogLoggerBuilder().Build().ForContext<TestContextConnectionLog>();
         }
 
         public void Write(EventType type, string message, params object[] args)
@@ -44,9 +47,7 @@ namespace Halibut.Tests.Support.Logging
 
             if (logEventLogLevel >= logLevel)
             {
-                new SerilogLoggerBuilder().Build()
-                    .ForContext<TestContextConnectionLog>()
-                    .Write(GetSerilogLevel(logEvent), string.Format("{5, 16}: {0}:{1} {2}  {3} {4}", logEventLogLevel, logEvent.Error, endpoint, Thread.CurrentThread.ManagedThreadId, logEvent.FormattedMessage, name));
+                log.Write(GetSerilogLevel(logEvent), string.Format("{5, 16}: {0}:{1} {2}  {3} {4}", logEventLogLevel, logEvent.Error, endpoint, Thread.CurrentThread.ManagedThreadId, logEvent.FormattedMessage, name));
             }
         }
 

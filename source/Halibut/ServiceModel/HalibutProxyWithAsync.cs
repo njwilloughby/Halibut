@@ -9,7 +9,7 @@ using Halibut.Transport.Protocol;
 
 namespace Halibut.ServiceModel
 {
-    public delegate Task<ResponseMessage> MessageRouter(RequestMessage request, MethodInfo serviceMethod, RequestCancellationTokens requestCancellationTokens);
+    public delegate Task<ResponseMessage> MessageRouter(RequestMessage request, MethodInfo serviceMethod, CancellationToken requestCancellationToken);
 
     public class HalibutProxyWithAsync : DispatchProxyAsync
     {
@@ -72,9 +72,9 @@ namespace Halibut.ServiceModel
 
             var request = CreateRequest(asyncMethod, serviceMethod, args);
 
-            using var requestCancellationTokens = RequestCancellationTokens(halibutProxyRequestOptions);
+            var requestCancellationToken = RequestCancellationToken(halibutProxyRequestOptions);
 
-            var response = await messageRouter(request, serviceMethod, requestCancellationTokens);
+            var response = await messageRouter(request, serviceMethod, requestCancellationToken);
 
             EnsureNotError(response);
             
@@ -104,16 +104,14 @@ namespace Halibut.ServiceModel
             return request;
         }
 
-        RequestCancellationTokens RequestCancellationTokens(HalibutProxyRequestOptions halibutProxyRequestOptions)
+        CancellationToken RequestCancellationToken(HalibutProxyRequestOptions halibutProxyRequestOptions)
         {
             if (halibutProxyRequestOptions == null)
             {
-                return new RequestCancellationTokens(globalCancellationToken, CancellationToken.None);
+                return globalCancellationToken;
             }
 
-            return new RequestCancellationTokens(
-                halibutProxyRequestOptions.ConnectingCancellationToken ?? CancellationToken.None,
-                halibutProxyRequestOptions.InProgressRequestCancellationToken ?? CancellationToken.None);
+            return halibutProxyRequestOptions.RequestCancellationToken;
         }
 
         void EnsureNotError(ResponseMessage responseMessage)
